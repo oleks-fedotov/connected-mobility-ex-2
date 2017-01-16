@@ -35,7 +35,7 @@ data = unhexlify(data)
 #if len(data) >= len(pdf_hdr) and data[:len(pdf_hdr)] == pdf_hdr:
 #    print("Looks like we got a PDF!")
 
-with open('index.html', 'wb') as fo:
+with open('something.html', 'wb') as fo:
     fo.write(data)
 
 sf.close()
