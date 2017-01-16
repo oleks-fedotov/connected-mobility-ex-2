@@ -100,6 +100,7 @@ def main():
     #start server
     loop = asyncio.get_event_loop()
     f = asyncio.start_server(accept_client, host=None, port = 80)
+    print("Server waiting for connections!")
     log.info("Server waiting for connections")
     loop.run_until_complete(f)
     loop.run_forever()
