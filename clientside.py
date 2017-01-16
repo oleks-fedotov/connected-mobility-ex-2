@@ -35,11 +35,14 @@ data = unhexlify(data)
 #if len(data) >= len(pdf_hdr) and data[:len(pdf_hdr)] == pdf_hdr:
 #    print("Looks like we got a PDF!")
 
-with open('something.html', 'wb') as fo:
+print("looks like we got a file!")
+
+with open('somestuff.html', 'wb') as fo:
     fo.write(data)
+
+print("file successfully saved, closing sockets")
 
 sf.close()
 s.close()
-
 
 s.close()
