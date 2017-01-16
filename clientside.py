@@ -22,7 +22,7 @@ except socket.error as msg:
 sf = s.makefile("rw")  # we use a file abstraction for the sockets
 
 
-#data = sf.readline().rstrip('\n')
+data = sf.readline().rstrip('\n')
 #print("From Server: `{}'".format(data))
 
 #data = sf.readline().rstrip('\n')
