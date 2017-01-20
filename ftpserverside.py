@@ -1,10 +1,7 @@
-
-Skip to content
-Personal
 import socket, sys, os, threading, time
 
-listenAddr = '127.0.0.1'
-listenPort = 12344
+listenAddr = None
+listenPort = 80
 
 def log(message, clientAddr = None):
     ''' Write log '''
@@ -203,9 +200,4 @@ if __name__ == '__main__':
         (controlSock, clientAddr) = listenSock.accept()
         FTPServer(controlSock, clientAddr).start()
         log("Connection accepted.", clientAddr)
-
-    Contact GitHub API Training Shop Blog About 
-
-    © 2017 GitHub, Inc. Terms Privacy Security Status Help 
-
 
