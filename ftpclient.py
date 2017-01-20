@@ -24,23 +24,35 @@ class FTPClient():
                 self.loggedIn = False
                 self.controlSock.close()
                 self.controlSock = None
-    def connect(self, host, port):
+    def connect(self, hosts, port):
         if self.controlSock != None: # Close existing socket first
             self.connected = False
             self.loggedIn = False
             self.controlSock.close()
         self.controlSock = socket.socket(socket.AF_INET, socket.SOCK_STREAM, 0)
-	try:
-	    print("attempt connection on host 1")
-	    s.connect((HOST1, PORT))
+        self.controlSock.settimeout(None) # Timeout forever
 
-	except socket.error as msg:
-	    print("attempt connection on host 2")
-	    s.connect((HOST2, PORT))
-        self.controlSock.connect((host, port))
-        if self.parseReply()[0] <= 3:
-            self.connected = True
-            self.controlSock.settimeout(None) # Timeout 1 second
+        while True:
+
+            for host in hosts:
+
+                try:
+                    print("attempt connection on host - " + host)
+                    self.controlSock.connect((host, port))
+
+                    if self.parseReply()[0] <= 3:
+                        self.connected = True
+                        break
+
+                except socket.error as msg:
+                    print("connection attempt failed, host - " + host)
+                    print(msg)
+
+            if self.connected:
+                break
+            else:
+                time.sleep(2)
+
     def login(self, user, password):
         if not self.connected:
             return
@@ -140,15 +152,10 @@ class FTPClient():
         dataSock.close()
         self.parseReply()
 
-ftpclient = FTPClient()
-try:
-    print("attempt connection on host 1")
-    s.connect((HOST1, PORT))
+hosts = {'10.0.0.3', '10.1.0.3'}
 
-except socket.error as msg:
-    print("attempt connection on host 2")
-    s.connect((HOST2, PORT))
-ftpclient.connect("10.1.0.3", 80)
+ftpclient = FTPClient()
+ftpclient.connect(hosts, 80)
 ftpclient.login("foo", "bar")
 time.sleep(5)
 ftpclient.quit()
