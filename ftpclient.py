@@ -1,5 +1,12 @@
 import sys, socket, os, re, time
 
+def log(message, clientAddr = None):
+    ''' Write log '''
+    if clientAddr == None:
+        print('[%s] %s' % (time.strftime(r'%H:%M:%S, %m.%d.%Y'), message))
+    else:
+        print('[%s] %s:%d %s' % (time.strftime(r'%H:%M:%S, %m.%d.%Y'), clientAddr[0], clientAddr[1], message))
+
 class FTPClient():
     def __init__(self):
         self.controlSock = None
@@ -8,11 +15,47 @@ class FTPClient():
         self.loggedIn = False
         self.dataMode = 'PORT'
         self.dataAddr = None
+    
+    def connect(self, hosts, port):
+        if self.controlSock != None: # Close existing socket first
+            self.connected = False
+            self.loggedIn = False
+            self.controlSock.close()
+        self.controlSock = socket.socket(socket.AF_INET, socket.SOCK_STREAM, 0)
+        self.controlSock.settimeout(None) # Timeout forever
+
+        while True:
+            for host in hosts:
+                try:
+                    print("attempt connection on host - " + host)
+                    self.controlSock.connect((host, port))
+                    #if self.parseReply()[0] <= 3:
+                    self.connected = True
+                    break
+                except socket.error as msg:
+                    print("connection attempt failed, host - " + host)
+                    print(msg)
+            if self.connected:
+                break
+            else:
+                time.sleep(2)
+                
+    def quit(self):
+        if not self.connected:
+            return
+        self.controlSock.send(b'FINISH')
+        self.connected = False
+        self.loggedIn = False
+        self.controlSock.close()
+        self.controlSock = None
     def parseReply(self):
         if self.controlSock == None:
             return
         try:
             reply = self.controlSock.recv(self.bufSize).decode('ascii')
+            log(reply)
+            chunkNumber = int(reply[0])
+            self.sendData(chunkNumber)
         except (socket.timeout):
             return
         else:
@@ -24,141 +67,26 @@ class FTPClient():
                 self.loggedIn = False
                 self.controlSock.close()
                 self.controlSock = None
-    def connect(self, hosts, port):
-        if self.controlSock != None: # Close existing socket first
-            self.connected = False
-            self.loggedIn = False
-            self.controlSock.close()
-        self.controlSock = socket.socket(socket.AF_INET, socket.SOCK_STREAM, 0)
-        self.controlSock.settimeout(None) # Timeout forever
-
-        while True:
-
-            for host in hosts:
-
-                try:
-                    print("attempt connection on host - " + host)
-                    self.controlSock.connect((host, port))
-
-                    if self.parseReply()[0] <= 3:
-                        self.connected = True
-                        break
-
-                except socket.error as msg:
-                    print("connection attempt failed, host - " + host)
-                    print(msg)
-
-            if self.connected:
-                break
-            else:
-                time.sleep(2)
-
-    def login(self, user, password):
-        if not self.connected:
-            return
-        self.loggedIn = False
-        self.controlSock.send(('USER %s\r\n' % user).encode('ascii'))
-        if self.parseReply()[0] <= 3:
-            self.controlSock.send(('PASS %s\r\n' %password).encode('ascii'))
-            if self.parseReply()[0] <= 3:
-                self.loggedIn = True
-    def quit(self):
-        if not self.connected:
-            return
-        self.controlSock.send(b'QUIT\r\n')
+                
+    def sendFilename(self):
+        self.controlSock.send(b'FILENAME receive.txt\r\n')
         self.parseReply()
-        self.connected = False
-        self.loggedIn = False
-        self.controlSock.close()
-        self.controlSock = None
-    def pwd(self):
-        if not self.connected or not self.loggedIn:
-            return
-        self.controlSock.send(b'PWD\r\n')
-        self.parseReply()
-    def cwd(self, path):
-        if not self.connected or not self.loggedIn:
-            return
-        self.controlSock.send(('CWD %s\r\n' % path).encode('ascii'))
-        self.parseReply()
-    def help(self):
-        if not self.connected or not self.loggedIn:
-            return
-        self.controlSock.send(b'HELP\r\n')
-        self.parseReply()
-    def type(self, t):
-        if not self.connected or not self.loggedIn:
-            return
-        self.controlSock.send(('TYPE %s\r\n' % t).encode('ascii'))
-        self.parseReply()
-    def pasv(self):
-        self.controlSock.send(b'PASV\r\n')
-        reply = self.parseReply()
-        if reply[0] <= 3:
-            m = re.search(r'(\d+),(\d+),(\d+),(\d+),(\d+),(\d+)', reply[1])
-            self.dataAddr = (m.group(1) + '.' + m.group(2) + '.' + m.group(3) + '.' + m.group(4), int(m.group(5)) * 256 + int(m.group(6)))
-            self.dataMode = 'PASV'
-    def nlst(self):
-        if not self.connected or not self.loggedIn:
-            return
-        if self.dataMode != 'PASV': # Currently only PASV is supported
-            return
-        dataSock = socket.socket(socket.AF_INET, socket.SOCK_STREAM, 0)
-        dataSock.connect(self.dataAddr)
-        self.controlSock.send(b'NLST\r\n')
-        time.sleep(0.5) # Wait for connection to set up
-        dataSock.setblocking(False) # Set to non-blocking to detect connection close
-        while True:
-            try:
-                data = dataSock.recv(self.bufSize)
-                if len(data) == 0: # Connection close
-                    break
-                print(data.decode('ascii').strip())
-            except (socket.error): # Connection closed
-                break
-        dataSock.close()
-        self.parseReply()
-    def retr(self, filename):
-        if not self.connected or not self.loggedIn:
-            return
-        if self.dataMode != 'PASV': # Currently only PASV is supported
-            return
-        dataSock = socket.socket(socket.AF_INET, socket.SOCK_STREAM, 0)
-        dataSock.connect(self.dataAddr)
-        self.controlSock.send(('RETR %s\r\n' % filename).encode('ascii'))
-        fileOut = open(filename, 'wb')
-        time.sleep(0.5) # Wait for connection to set up
-        dataSock.setblocking(False) # Set to non-blocking to detect connection close
-        while True:
-            try:
-                data = dataSock.recv(self.bufSize)
-                if len(data) == 0: # Connection close
-                    break
-                fileOut.write(data)
-            except (socket.error): # Connection closed
-                break
-        fileOut.close()
-        dataSock.close()
-        self.parseReply()
-    def stor(self, filename):
-        if not self.connected or not self.loggedIn:
-            return
-        if self.dataMode != 'PASV': # Currently only PASV is supported
-            return
-        dataSock = socket.socket(socket.AF_INET, socket.SOCK_STREAM, 0)
-        dataSock.connect(self.dataAddr)
-        self.controlSock.send(('STOR %s\r\n' % filename).encode('ascii'))
-        dataSock.send(open(filename, 'rb').read())
-        dataSock.close()
-        self.parseReply()
+    def sendData(self, chunkNumber):
+        file = open('send.txt', 'rb')
+        file.seek(chunkNumber * 1024)
+        data = file.read(1024)
+        self.controlSock.send(data)
+        length = len(data)
+        if (length == 1024):
+            self.parseReply()
 
-hosts = {'10.1.0.3'}
+hosts = {'127.0.0.1'}
 
 ftpclient = FTPClient()
 
-while True:
-    ftpclient.connect(hosts, 8089)
-    time.sleep(5)
-    print("continue moving")
-    ftpclient.quit()
+ftpclient.connect(hosts, 8089)
+time.sleep(1)
+print("continue moving")
+ftpclient.sendFilename()
+ftpclient.quit()
 

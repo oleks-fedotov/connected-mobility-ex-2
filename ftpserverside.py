@@ -1,14 +1,14 @@
 import socket, sys, os, threading, time
 
-listenAddr = '10.1.0.3'
-listenPort = 80
+listenAddr = '127.0.0.1'
+listenPort = 8089
 
 def log(message, clientAddr = None):
     ''' Write log '''
     if clientAddr == None:
-        print('\033[92m[%s]\033[0m %s' % (time.strftime(r'%H:%M:%S, %m.%d.%Y'), message))
+        print('[%s] %s' % (time.strftime(r'%H:%M:%S, %m.%d.%Y'), message))
     else:
-        print('\033[92m[%s] %s:%d\033[0m %s' % (time.strftime(r'%H:%M:%S, %m.%d.%Y'), clientAddr[0], clientAddr[1], message))
+        print('[%s] %s:%d %s' % (time.strftime(r'%H:%M:%S, %m.%d.%Y'), clientAddr[0], clientAddr[1], message))
 
 
 class FTPServer(threading.Thread):
@@ -33,26 +33,28 @@ class FTPServer(threading.Thread):
                 break
 
             cmdHead = cmd.split()[0].upper()
+            log(cmd)
 
             if cmdHead == 'FILENAME':  # FILENAME
 
-                self.filename = cmdHead.split()[1]
+                self.filename = cmd.split()[1]
                 self.receivedChunkNumber = 0
                 self.controlSock.send('0'.encode('ascii'))
-
-            elif cmdHead == 'DATA':  # DATA
-                if len(cmd.split()) < 2:
-                    self.controlSock.send('Error in parameters - No data is present'.encode('ascii'))
-                else:
-                    with open(self.filename, 'ab') as file:
-                        file.write(cmd.split()[1])
-
-                    self.receivedChunkNumber += 1
-                    self.controlSock.send(str(self.receivedChunkNumber).encode('ascii'))
-
+                
             elif cmdHead == 'FINISH':  # FINISH FILE TRANSFER
                 self.controlSock.send(str(self.receivedChunkNumber).encode('ascii'))
                 self.controlSock.close()
+            else:
+                #if len(cmd.split()) < 2:
+                #    self.controlSock.send('Error in parameters - No data is present'.encode('ascii'))
+                #else:
+                with open(self.filename, 'ab') as file:
+                    file.write(cmd)
+
+                self.receivedChunkNumber += 1
+                self.controlSock.send(str(self.receivedChunkNumber).encode('ascii'))
+
+
 
 if __name__ == '__main__':
     listenSock = socket.socket(socket.AF_INET, socket.SOCK_STREAM, 0)

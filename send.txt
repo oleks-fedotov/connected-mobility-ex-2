@@ -1,0 +1,21 @@
+Notes & Commands
+
+sudo mn -c
+cd ~/Documents/mininet-wifi/examples
+sudo python wifiMobilityModel.py
+ctrl-D
+
+cd ~/CM
+sudo python base_scenario.py
+sudo python base_scenario2.py
+
+h1.cmdPrint('python customhttpserver.py 80 &') <- fill in serverside.py and port
+
+xterm sta1
+xterm sta1
+
+watch -n1 iwconfig
+
+wget 10.0.0.3
+wget 10.1.0.3
+
