@@ -152,11 +152,13 @@ class FTPClient():
         dataSock.close()
         self.parseReply()
 
-hosts = {'10.0.0.3', '10.1.0.3'}
+hosts = {'10.1.0.3'}
 
 ftpclient = FTPClient()
-ftpclient.connect(hosts, 80)
-ftpclient.login("foo", "bar")
-time.sleep(5)
-ftpclient.quit()
+
+while True:
+    ftpclient.connect(hosts, 8089)
+    time.sleep(5)
+    print("continue moving")
+    ftpclient.quit()
 
