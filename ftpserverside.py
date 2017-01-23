@@ -10,158 +10,49 @@ def log(message, clientAddr = None):
     else:
         print('\033[92m[%s] %s:%d\033[0m %s' % (time.strftime(r'%H:%M:%S, %m.%d.%Y'), clientAddr[0], clientAddr[1], message))
 
-class DataSockListener(threading.Thread):
-    ''' Asynchronously accepts data connections '''
-    def __init__(self, server):
-        super().__init__()
-        self.daemon = True # Daemon
-        self.server = server
-        self.listenSock = server.dataListenSock
-    def run(self):
-        self.listenSock.settimeout(1.0) # Check for every 1 second
-        while True:
-            try:
-                (dataSock, clientAddr) = self.listenSock.accept()
-            except (socket.timeout):
-                pass
-            except (socket.error): # Stop when socket closes
-                break
-            else:
-                if self.server.dataSock != None: # Existing data connection not closed, cannot accept
-                    dataSock.close()
-                    log('Data connection refused from %s:%d.' % (clientAddr[0], clientAddr[1]), self.server.clientAddr)
-                else:
-                    self.server.dataSock = dataSock
-                    log('Data connection accpted from %s:%d.' % (clientAddr[0], clientAddr[1]), self.server.clientAddr)
 
 class FTPServer(threading.Thread):
     ''' FTP server handler '''
     def __init__(self, controlSock, clientAddr):
         super().__init__()
-        self.daemon = True # Daemon
+
+        self.filename = ''
+        self.receivedChunkNumber = 0
+
         self.bufSize = 1024
         self.controlSock = controlSock
         self.clientAddr = clientAddr
-        self.dataListenSock = None
-        self.dataSock = None
-        self.dataAddr = '10.1.0.3'
-        self.dataPort = None
-        self.username = ''
-        self.authenticated = False
-        self.cwd = os.getcwd()
-        self.typeMode = 'Binary'
-        self.dataMode = 'PORT'
+
     def run(self):
         self.controlSock.send(b'220 Service ready for new user.\r\n')
         while True:
             cmd = self.controlSock.recv(self.bufSize).decode('ascii')
-            if cmd == '': # Connection closed
+            if cmd == '':  # Connection closed
                 self.controlSock.close()
                 log('Client disconnected.', self.clientAddr)
                 break
 
             cmdHead = cmd.split()[0].upper()
-            if cmdHead == 'QUIT': # QUIT
-                self.controlSock.send(b'221 Service closing control connection. Logged out if appropriate.\r\b')
+
+            if cmdHead == 'FILENAME':  # FILENAME
+
+                self.filename = cmdHead.split()[1]
+                self.receivedChunkNumber = 0
+                self.controlSock.send('0'.encode('ascii'))
+
+            elif cmdHead == 'DATA':  # DATA
+                if len(cmd.split()) < 2:
+                    self.controlSock.send('Error in parameters - No data is present'.encode('ascii'))
+                else:
+                    with open(self.filename, 'ab') as file:
+                        file.write(cmd.split()[1])
+
+                    self.receivedChunkNumber += 1
+                    self.controlSock.send(str(self.receivedChunkNumber).encode('ascii'))
+
+            elif cmdHead == 'FINISH':  # FINISH FILE TRANSFER
+                self.controlSock.send(str(self.receivedChunkNumber).encode('ascii'))
                 self.controlSock.close()
-                log('Client disconnected.', self.clientAddr)
-                break
-
-            elif cmdHead == 'PWD': # PWD
-                self.controlSock.send(('257 "%s" is the current directory.\r\n' % self.cwd).encode('ascii'))
-
-            elif cmdHead == 'CWD': # CWD
-                if len(cmd.split()) < 2:
-                    self.controlSock.send(('250 "%s" is the current directory.\r\n' % self.cwd).encode('ascii'))
-                else:
-                    programDir = os.getcwd()
-                    os.chdir(self.cwd)
-                    newDir = cmd.split()[1]
-                    try:
-                        os.chdir(newDir)
-                    except (OSError):
-                        self.controlSock.send(b'550 Requested action not taken. File unavailable (e.g., file busy).\r\n')
-                    else:
-                        self.cwd = os.getcwd()
-                        self.controlSock.send(('250 "%s" is the current directory.\r\n' % self.cwd).encode('ascii'))
-                    os.chdir(programDir)
-
-            elif cmdHead == 'TYPE': # TYPE, currently only I is supported
-                if len(cmd.split()) < 2:
-                    self.controlSock.send(b'501 Syntax error in parameters or arguments.\r\n')
-                elif cmd.split()[1] == 'I':
-                    self.typeMode = 'Binary'
-                    self.controlSock.send(b'200 Type set to: Binary.\r\n')
-                else:
-                    self.controlSock.send(b'504 Command not implemented for that parameter.\r\n')
-
-            elif cmdHead == 'PASV': # PASV, currently only support PASV
-                if self.dataListenSock != None: # Close existing data connection listening socket
-                    self.dataListenSock.close()
-                self.dataListenSock = socket.socket(socket.AF_INET, socket.SOCK_STREAM, 0)
-                self.dataListenSock.bind((self.dataAddr, 0))
-                self.dataPort = self.dataListenSock.getsockname()[1]
-                self.dataListenSock.listen(5)
-                self.dataMode = 'PASV'
-                DataSockListener(self).start()
-                time.sleep(0.5) # Wait for connection to set up
-                self.controlSock.send(('227 Entering passive mode (%s,%s,%s,%s,%d,%d)\r\n' % (self.dataAddr.split('.')[0], self.dataAddr.split('.')[1], self.dataAddr.split('.')[2], self.dataAddr.split('.')[3], int(self.dataPort / 256), self.dataPort % 256)).encode('ascii'))
-
-            elif cmdHead == 'NLST': # NLST
-                if self.dataMode == 'PASV' and self.dataSock != None: # Only PASV implemented
-                    self.controlSock.send(b'125 Data connection already open. Transfer starting.\r\n')
-                    directory = '\r\n'.join(os.listdir(self.cwd)) + '\r\n'
-                    self.dataSock.send(directory.encode('ascii'))
-                    self.dataSock.close()
-                    self.dataSock = None
-                    self.controlSock.send(b'225 Closing data connection. Requested file action successful (for example, file transfer or file abort).\r\n')
-                else:
-                    self.controlSock.send(b"425 Can't open data connection.\r\n")
-
-            elif cmdHead == 'RETR':
-                if len(cmd.split()) < 2:
-                    self.controlSock.send(b'501 Syntax error in parameters or arguments.\r\n')
-                elif self.dataMode == 'PASV' and self.dataSock != None: # Only PASV implemented
-                    programDir = os.getcwd()
-                    os.chdir(self.cwd)
-                    self.controlSock.send(b'125 Data connection already open; transfer starting.\r\n')
-                    fileName = cmd.split()[1]
-                    try:
-                        self.dataSock.send(open(fileName, 'rb').read())
-                    except (IOError):
-                        self.controlSock.send(b'550 Requested action not taken. File unavailable (e.g., file busy).\r\n')
-                    self.dataSock.close()
-                    self.dataSock = None
-                    self.controlSock.send(b'225 Closing data connection. Requested file action successful (for example, file transfer or file abort).\r\n')
-                    os.chdir(programDir)
-                else:
-                    self.controlSock.send(b"425 Can't open data connection.\r\n")
-
-            elif cmdHead == 'STOR':
-                if len(cmd.split()) < 2:
-                    self.controlSock.send(b'501 Syntax error in parameters or arguments.\r\n')
-                elif self.dataMode == 'PASV' and self.dataSock != None: # Only PASV implemented
-                    programDir = os.getcwd()
-                    os.chdir(self.cwd)
-                    self.controlSock.send(b'125 Data connection already open; transfer starting.\r\n')
-                    fileOut = open(cmd.split()[1], 'wb')
-                    time.sleep(0.5) # Wait for connection to set up
-                    self.dataSock.setblocking(False) # Set to non-blocking to detect connection close
-                    while True:
-                        try:
-                            data = self.dataSock.recv(self.bufSize)
-                            if data == b'': # Connection closed
-                                break
-                            fileOut.write(data)
-                        except (socket.error): # Connection closed
-                            break
-                    fileOut.close()
-                    self.dataSock.close()
-                    self.dataSock = None
-                    self.controlSock.send(b'225 Closing data connection. Requested file action successful (for example, file transfer or file abort).\r\n')
-                    os.chdir(programDir)
-                else:
-                    self.controlSock.send(b"425 Can't open data connection.\r\n")
 
 if __name__ == '__main__':
     listenSock = socket.socket(socket.AF_INET, socket.SOCK_STREAM, 0)
