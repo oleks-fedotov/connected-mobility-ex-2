@@ -91,10 +91,6 @@ class FTPClient():
                     self.chunkNumber = int(reply)
                     self.sendData(self.chunkNumber)
 
-            # elif len(reply) > 0:
-            #     print('<< ' + reply.strip().replace('\n', '\n<< '))
-            #     return
-
             else:  # Server disconnected
                 self.connected = False
                 self.loggedIn = False
