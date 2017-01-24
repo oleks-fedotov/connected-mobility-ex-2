@@ -1,6 +1,6 @@
 import socket, sys, os, threading, time
 
-listenAddr = '127.0.0.1'
+listenAddr = '0.0.0.0'
 listenPort = 8089
 
 def log(message, clientAddr = None):
@@ -24,7 +24,7 @@ class FTPServer(threading.Thread):
         self.clientAddr = clientAddr
 
     def run(self):
-        self.controlSock.send(b'220 Service ready for new user.\r\n')
+        self.controlSock.send(b'READY')
         while True:
             cmd = self.controlSock.recv(self.bufSize).decode('ascii')
             if cmd == '':  # Connection closed
@@ -36,23 +36,23 @@ class FTPServer(threading.Thread):
             log(cmd)
 
             if cmdHead == 'FILENAME':  # FILENAME
-
                 self.filename = cmd.split()[1]
                 self.receivedChunkNumber = 0
                 self.controlSock.send('0'.encode('ascii'))
                 
             elif cmdHead == 'FINISH':  # FINISH FILE TRANSFER
-                self.controlSock.send(str(self.receivedChunkNumber).encode('ascii'))
+                self.controlSock.send(b'FINISH ' + str(self.receivedChunkNumber).encode('ascii'))
                 self.controlSock.close()
-            else:
-                #if len(cmd.split()) < 2:
-                #    self.controlSock.send('Error in parameters - No data is present'.encode('ascii'))
-                #else:
-                with open(self.filename, 'ab') as file:
-                    file.write(cmd)
 
-                self.receivedChunkNumber += 1
-                self.controlSock.send(str(self.receivedChunkNumber).encode('ascii'))
+            else:
+                if len(cmd.split()) < 2:
+                    self.controlSock.send('Error in parameters - No data is present'.encode('ascii'))
+                else:
+                    with open(self.filename, 'ab') as file:
+                        file.write(cmd.encode('ascii'))
+
+                    self.receivedChunkNumber += 1
+                    self.controlSock.send(str(self.receivedChunkNumber).encode('ascii'))
 
 
 
