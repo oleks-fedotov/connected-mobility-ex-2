@@ -24,10 +24,15 @@ class FTPServer(threading.Thread):
         self.bufSize = 1024
         self.controlSock = controlSock
         self.clientAddr = clientAddr
+        self.isSocketClosed = False
 
     def run(self):
         self.controlSock.send(b'READY')
         while True:
+
+            if self.isSocketClosed:
+                log('Client disconnected.', self.clientAddr)
+                break
 
             cmd = None
             raw_data = self.controlSock.recv(self.bufSize)
@@ -35,8 +40,8 @@ class FTPServer(threading.Thread):
             try:
                 cmd = raw_data.decode('ascii')
             except UnicodeDecodeError:
-                cmd = raw_data
-                log('data length - ' + str(cmd))
+                cmd = raw_data[0:len(raw_data)]
+                log('data length - ' + str(len(cmd)))
 
             if cmd == '':  # Connection closed
                 self.controlSock.close()
@@ -59,10 +64,12 @@ class FTPServer(threading.Thread):
             elif cmdHead == 'FINISH':  # FINISH FILE TRANSFER
                 self.controlSock.send(b'FINISH ' + str(self.receivedChunkNumber).encode('ascii'))
                 self.controlSock.close()
+                self.isSocketClosed = True
 
             else:
-                with open(self.filename, 'ab') as file:
-                    file.write(cmd)
+                file = open(self.filename, 'ab+')
+                file.write(cmd)
+                file.close()
 
                 self.receivedChunkNumber += 1
                 self.controlSock.send(str(self.receivedChunkNumber).encode('ascii'))
