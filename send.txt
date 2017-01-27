@@ -19,3 +19,207 @@ watch -n1 iwconfig
 wget 10.0.0.3
 wget 10.1.0.3
 
+
+import sys, socket, os, re, time, math
+
+def log(message, clientAddr = None):
+    ''' Write log '''
+    if clientAddr == None:
+        print('[%s] %s' % (time.strftime(r'%H:%M:%S, %m.%d.%Y'), message))
+    else:
+        print('[%s] %s:%d %s' % (time.strftime(r'%H:%M:%S, %m.%d.%Y'), clientAddr[0], clientAddr[1], message))
+
+def is_number(s):
+    try:
+        float(s)
+        return True
+    except ValueError:
+        return False
+
+class FTPClient():
+    def __init__(self):
+        self.controlSock = None
+        self.bufSize = 1024
+        self.connected = False
+        self.loggedIn = False
+        self.dataMode = 'PORT'
+        self.dataAddr = None
+        self.chunkNumber = 0
+        self.isFileReadCompletely = False
+
+    def connect(self, hosts, port):
+        if self.controlSock != None: # Close existing socket first
+            self.connected = False
+            self.loggedIn = False
+            self.controlSock.close()
+        self.controlSock = socket.socket(socket.AF_INET, socket.SOCK_STREAM, 0)
+        self.controlSock.settimeout(None) # Timeout forever
+
+        while True:
+            for host in hosts:
+                try:
+                    print("attempt connection on host - " + host)
+                    self.controlSock.connect((host, port))
+                    #if self.parseReply()[0] <= 3:
+                    self.connected = True
+                    break
+                except socket.error as msg:
+                    print("connection attempt failed, host - " + host)
+                    print(msg)
+            if self.connected:
+                break
+            else:
+                time.sleep(2)
+
+    def quit(self):
+        if not self.connected:
+            return
+        self.controlSock.send(b'FINISH')
+        self.connected = False
+        self.loggedIn = False
+        self.controlSock.close()
+        self.controlSock = None
+
+    def parseReply(self):
+
+        if self.controlSock == None:
+            return
+
+        try:
+            reply = self.controlSock.recv(self.bufSize).decode('ascii')
+            log(reply)
+
+            if reply.upper() == 'READY':
+                self.sendFilename()
+
+            elif reply.startswith('FINISH '):
+                parts = reply.split()
+                if len(parts) < 2 or (not is_number(parts[1])):
+                    log('FINISH message format is wrong. Cannot confirm correctness of transfered data.')
+
+                numberOfChunksToCheck = int(reply.split()[1])
+
+                file = open('send.txt', 'rb')
+                data = file.read(self.bufSize)
+                if not numberOfChunksToCheck == math.ceil(len(data) / self.bufSize):
+                    log('Transfer finished. Data was not delivered correctly. :(')
+                else:
+                    log('Transfer finished. Data was delivered correctly. :)')
+
+            elif is_number(reply):
+
+                if self.isFileReadCompletely:
+                    self.sendFinish()
+                else:
+                    self.chunkNumber = int(reply)
+                    self.sendData(self.chunkNumber)
+
+            else:  # Server disconnected
+                self.connected = False
+                self.loggedIn = False
+                self.controlSock.close()
+                self.controlSock = None
+
+        except (socket.timeout):
+            return
+
+    def sendFilename(self):
+        self.controlSock.send(b'FILENAME receive.txt\r\n')
+        self.parseReply()
+
+    def sendData(self, chunkNumber):
+        file = open('send.txt', 'rb')
+        file.seek(chunkNumber * self.bufSize)
+        data = file.read(self.bufSize)
+
+        if len(data) < self.bufSize:
+            self.isFileReadCompletely = True
+
+        self.controlSock.send(data)
+        self.parseReply()
+
+    def sendFinish(self):
+        self.controlSock.send(b'FINISH')
+        self.parseReply()
+
+hosts = {'127.0.0.1'}
+
+ftpclient = FTPClient()
+
+ftpclient.connect(hosts, 8089)
+print("Connection established. Ready to send data.")
+ftpclient.parseReply()
+# ftpclient.sendFilename()
+ftpclient.quit()
+
+
+
+import socket, sys, os, threading, time
+
+listenAddr = '0.0.0.0'
+listenPort = 8089
+
+def log(message, clientAddr = None):
+    ''' Write log '''
+    if clientAddr == None:
+        print('[%s] %s' % (time.strftime(r'%H:%M:%S, %m.%d.%Y'), message))
+    else:
+        print('[%s] %s:%d %s' % (time.strftime(r'%H:%M:%S, %m.%d.%Y'), clientAddr[0], clientAddr[1], message))
+
+
+class FTPServer(threading.Thread):
+    ''' FTP server handler '''
+    def __init__(self, controlSock, clientAddr):
+        super().__init__()
+
+        self.filename = ''
+        self.receivedChunkNumber = 0
+
+        self.bufSize = 1024
+        self.controlSock = controlSock
+        self.clientAddr = clientAddr
+
+    def run(self):
+        self.controlSock.send(b'READY')
+        while True:
+            cmd = self.controlSock.recv(self.bufSize).decode('ascii')
+            if cmd == '':  # Connection closed
+                self.controlSock.close()
+                log('Client disconnected.', self.clientAddr)
+                break
+
+            cmdHead = cmd.split()[0].upper()
+            log(cmd)
+
+            if cmdHead == 'FILENAME':  # FILENAME
+                self.filename = cmd.split()[1]
+                self.receivedChunkNumber = 0
+                self.controlSock.send('0'.encode('ascii'))
+
+            elif cmdHead == 'FINISH':  # FINISH FILE TRANSFER
+                self.controlSock.send(b'FINISH ' + str(self.receivedChunkNumber).encode('ascii'))
+                self.controlSock.close()
+
+            else:
+                if len(cmd.split()) < 2:
+                    self.controlSock.send('Error in parameters - No data is present'.encode('ascii'))
+                else:
+                    with open(self.filename, 'ab') as file:
+                        file.write(cmd.encode('ascii'))
+
+                    self.receivedChunkNumber += 1
+                    self.controlSock.send(str(self.receivedChunkNumber).encode('ascii'))
+
+
+
+if __name__ == '__main__':
+    listenSock = socket.socket(socket.AF_INET, socket.SOCK_STREAM, 0)
+    listenSock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    listenSock.bind((listenAddr, listenPort))
+    listenSock.listen(5)
+    log('Server started.')
+    while True:
+        (controlSock, clientAddr) = listenSock.accept()
+        FTPServer(controlSock, clientAddr).start()
+        log("Connection accepted.", clientAddr)
+
