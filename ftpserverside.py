@@ -28,7 +28,10 @@ class FTPServer(threading.Thread):
 
     def run(self):
 
-        self.controlSock.send(b'READY')
+        if not self.receivedChunkNumber == 0:
+            self.controlSock.send(str(self.receivedChunkNumber).encode('ascii'))
+        else:
+            self.controlSock.send('READY')
 
         while True:
 

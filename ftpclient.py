@@ -31,24 +31,29 @@ class FTPClient():
             self.connected = False
             self.controlSock.close()
 
-        self.controlSock = socket.socket(socket.AF_INET, socket.SOCK_STREAM, 0)
-        self.controlSock.settimeout(None) # Timeout forever
-
         while True:
             for host in hosts:
                 try:
+                    self.controlSock = socket.socket(socket.AF_INET, socket.SOCK_STREAM, 0)
+                    # self.controlSock.settimeout(1)
+
                     print("attempt connection on host - " + host)
                     self.controlSock.connect((host, port))
-                    #if self.parseReply()[0] <= 3:
                     self.connected = True
+                    print('connection established with - ' + host)
+                    self.parseReply()
+
                     break
                 except socket.error as msg:
                     print("connection attempt failed, host - " + host)
+                    self.controlSock.close()
                     print(msg)
             if self.connected:
                 break
             else:
-                time.sleep(2)
+                time.sleep(1)
+
+        self.controlSock.settimeout(1)
                 
     def quit(self):
         if not self.connected:
@@ -63,16 +68,24 @@ class FTPClient():
         while True:
 
             if self.controlSock == None:
+                log('socket null,')
                 return
 
             try:
                 reply = self.controlSock.recv(self.bufSize).decode('ascii')
                 log(reply)
 
-                if reply.upper() == 'READY':
-                    self.sendFilename()
+                if reply.startswith('READY'):
+                    parts = reply.split()
+                    if len(parts) > 1:
+                        self.chunkNumber = int(parts[1])
+                        self.sendData(self.chunkNumber)
 
-                elif reply.startswith('FINISH '):
+                    else:
+                        self.sendFilename()
+
+
+                elif reply.startswith('FINISH'):
                     parts = reply.split()
                     if len(parts) < 2 or (not is_number(parts[1])):
                         log('FINISH message format is wrong. Cannot confirm correctness of transfered data.')
@@ -104,7 +117,10 @@ class FTPClient():
                     self.connect(hosts, 80)
 
             except (socket.timeout):
-                return
+                self.controlSock.close()
+                self.connected = False
+                self.controlSock = None
+                self.connect(hosts, 80)
 
     def sendFilename(self):
         self.controlSock.send(b'FILENAME receive.pdf\r\n')
@@ -134,7 +150,7 @@ ftpclient = FTPClient()
 
 ftpclient.connect(hosts, 80)
 print("Connection established. Ready to send data.")
-ftpclient.parseReply()
+# ftpclient.parseReply()
 # ftpclient.sendFilename()
 ftpclient.quit()
 
