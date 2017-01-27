@@ -31,7 +31,7 @@ class FTPServer(threading.Thread):
         if not self.receivedChunkNumber == 0:
             self.controlSock.send(str(self.receivedChunkNumber).encode('ascii'))
         else:
-            self.controlSock.send('READY')
+            self.controlSock.send(b'READY')
 
         while True:
 
@@ -88,8 +88,8 @@ class FTPServer(threading.Thread):
             if os.path.isfile(self.filename):
                 os.remove(self.filename)
 
-            self.receivedChunkNumber = 0
-            self.controlSock.send('0'.encode('ascii'))
+            self.receivedChunkNumber = 18
+            self.controlSock.send(str(self.receivedChunkNumber).encode('ascii'))
 
             return True
 
