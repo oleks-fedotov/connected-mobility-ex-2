@@ -24,6 +24,7 @@ class FTPClient():
         self.dataAddr = None
         self.chunkNumber = 0
         self.isFileReadCompletely = False
+        self.fileName = "send.pdf"
     
     def connect(self, hosts, port):
         if self.controlSock != None: # Close existing socket first
@@ -77,8 +78,8 @@ class FTPClient():
 
                 numberOfChunksToCheck = int(reply.split()[1])
 
-                file = open('send.txt', 'rb')
-                data = file.read(self.bufSize)
+                file = open(self.fileName, 'rb')
+                data = file.read()
                 if not numberOfChunksToCheck == math.ceil(len(data) / self.bufSize):
                     log('Transfer finished. Data was not delivered correctly. :(')
                 else:
@@ -102,17 +103,22 @@ class FTPClient():
             return
 
     def sendFilename(self):
-        self.controlSock.send(b'FILENAME receive.txt\r\n')
+        self.controlSock.send(b'FILENAME receive.pdf\r\n')
         self.parseReply()
 
     def sendData(self, chunkNumber):
-        file = open('send.txt', 'rb')
+        log('sending data, chunk - ' + str(chunkNumber))
+        log('file open')
+        file = open(self.fileName, 'rb')
+        log('file opened')
         file.seek(chunkNumber * self.bufSize)
+        log('file seeked')
         data = file.read(self.bufSize)
-
+        log('file read')
         if len(data) < self.bufSize:
             self.isFileReadCompletely = True
 
+        log('start sending')
         self.controlSock.send(data)
         self.parseReply()
 
