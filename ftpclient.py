@@ -34,28 +34,38 @@ class FTPClient():
             self.controlSock.close()
 
         while True:
+
+            if self.isFileReadCompletely:
+                break
+
             for host in hosts:
                 try:
                     self.controlSock = socket.socket(socket.AF_INET, socket.SOCK_STREAM, 0)
-                    self.controlSock.settimeout(2)
+                    self.controlSock.settimeout(2.5)
 
                     print("attempt connection on host - " + host)
                     self.controlSock.connect((host, port))
                     self.connected = True
                     print('connection established with - ' + host)
 
-                    break
-                except socket.error as msg:
+                    self.sendFilename()
+                    self.parseReply()
+
+                except (socket.error, socket.timeout) as msg:
                     print("connection attempt failed, host - " + host)
                     self.controlSock.close()
                     print(msg)
-            if self.connected:
-                break
+
+            time.sleep(1)
+
+            #if self.connected:
+               # break
             #else:
                 #time.sleep(2)
 
-        self.controlSock.settimeout(1)
-        self.parseReply()
+
+
+
                 
     def quit(self):
         if not self.connected:
@@ -103,6 +113,7 @@ class FTPClient():
 
                     self.controlSock.close()
                     self.connected = False
+                    return
 
                 elif is_number(reply):
 
@@ -115,14 +126,12 @@ class FTPClient():
                 else:  # Server disconnected
                     self.connected = False
                     self.controlSock.close()
-                    self.controlSock = None
-                    self.connect(hosts, port)
+                    return
 
-            except (socket.timeout):
+            except:
                 self.controlSock.close()
                 self.connected = False
-                self.controlSock = None
-                self.connect(hosts, port)
+                return
 
     def sendFilename(self):
         self.controlSock.send(b'FILENAME receive.pdf\r\n')

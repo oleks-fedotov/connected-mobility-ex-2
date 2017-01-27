@@ -28,12 +28,10 @@ class FTPServer(threading.Thread):
 
     def run(self):
 
-        if not self.receivedChunkNumber == 0:
+        if self.receivedChunkNumber != 0:
             self.controlSock.send(str(self.receivedChunkNumber).encode('ascii'))
         else:
             self.controlSock.send(b'READY')
-
-        self.controlSock.settimeout(1)
 
         while True:
 
@@ -85,15 +83,16 @@ class FTPServer(threading.Thread):
 
         if command == 'FILENAME':  # FILENAME
 
-            if args:
-                self.filename = args
-            else:
+            if args is None or args == '':
                 self.controlSock.send(b'Error - filename not provided')
+                return True
+
+            if args != self.filename:
+                self.filename = args
 
             if os.path.isfile(self.filename):
                 os.remove(self.filename)
 
-            self.receivedChunkNumber = 0
             self.controlSock.send(str(self.receivedChunkNumber).encode('ascii'))
 
             return True

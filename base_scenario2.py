@@ -69,7 +69,7 @@ def topology():
     net.plotGraph(max_x=100, max_y=100)
 
     """Seed"""
-    net.seed(99)
+    net.seed(20)
 
     "*** Available models: RandomWalk, TruncatedLevyWalk, RandomDirection, RandomWayPoint, GaussMarkov, ReferencePoint, TimeVariantCommunity ***"
     net.startMobility(startTime=0, model='RandomWayPoint', max_x=100, max_y=100, min_v=0.5, max_v=1.2)
