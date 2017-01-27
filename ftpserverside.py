@@ -1,7 +1,7 @@
 import socket, sys, os, threading, time
 
 listenAddr = '0.0.0.0'
-listenPort = 8089
+listenPort = 80
 
 
 def log(message, clientAddr=None):

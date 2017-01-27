@@ -19,7 +19,6 @@ class FTPClient():
         self.controlSock = None
         self.bufSize = 1024
         self.connected = False
-        self.loggedIn = False
         self.dataMode = 'PORT'
         self.dataAddr = None
         self.chunkNumber = 0
@@ -27,10 +26,11 @@ class FTPClient():
         self.fileName = "send.pdf"
     
     def connect(self, hosts, port):
+
         if self.controlSock != None: # Close existing socket first
             self.connected = False
-            self.loggedIn = False
             self.controlSock.close()
+
         self.controlSock = socket.socket(socket.AF_INET, socket.SOCK_STREAM, 0)
         self.controlSock.settimeout(None) # Timeout forever
 
@@ -55,7 +55,6 @@ class FTPClient():
             return
         self.controlSock.send(b'FINISH')
         self.connected = False
-        self.loggedIn = False
         self.controlSock.close()
         self.controlSock = None
 
@@ -87,6 +86,9 @@ class FTPClient():
                     else:
                         log('Transfer finished. Data was delivered correctly. :)')
 
+                    self.controlSock.close()
+                    self.connected = False
+
                 elif is_number(reply):
 
                     if self.isFileReadCompletely:
@@ -97,9 +99,9 @@ class FTPClient():
 
                 else:  # Server disconnected
                     self.connected = False
-                    self.loggedIn = False
                     self.controlSock.close()
                     self.controlSock = None
+                    self.connect(hosts, 80)
 
             except (socket.timeout):
                 return
@@ -125,12 +127,12 @@ class FTPClient():
     def sendFinish(self):
         self.controlSock.send(b'FINISH')
 
-# hosts = {'10.1.0.3'}
-hosts = {'127.0.0.1'}
+hosts = {'10.1.0.3'}
+# hosts = {'127.0.0.1'}
 
 ftpclient = FTPClient()
 
-ftpclient.connect(hosts, 8089)
+ftpclient.connect(hosts, 80)
 print("Connection established. Ready to send data.")
 ftpclient.parseReply()
 # ftpclient.sendFilename()
