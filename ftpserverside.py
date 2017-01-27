@@ -31,7 +31,7 @@ class FTPServer(threading.Thread):
         if self.receivedChunkNumber != 0:
             self.controlSock.send(str(self.receivedChunkNumber).encode('ascii'))
         else:
-            self.controlSock.send(b'READY')
+            self.controlSock.send(b'READY\n')
 
         while True:
 
@@ -68,13 +68,11 @@ class FTPServer(threading.Thread):
                 break
 
             if not isComandHandled:
-                file = open(self.filename, 'ab')
-                try:
-                    file.write(cmd)
-                except TypeError:
-                    file.write(cmd.encode('ascii'))
-
-                file.close()
+                with open(self.filename, 'ab') as file:
+                    try:
+                        file.write(cmd)
+                    except TypeError:
+                        file.write(cmd.encode('ascii'))
 
                 self.receivedChunkNumber += 1
                 self.controlSock.send(str(self.receivedChunkNumber).encode('ascii'))

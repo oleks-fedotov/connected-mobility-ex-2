@@ -25,7 +25,7 @@ class FTPClient():
         self.dataAddr = None
         self.chunkNumber = 0
         self.isFileReadCompletely = False
-        self.fileName = "send.pdf"
+        self.fileName = "send.txt"
     
     def connect(self, hosts, port):
 
@@ -48,7 +48,6 @@ class FTPClient():
                     self.connected = True
                     print('connection established with - ' + host)
 
-                    self.sendFilename()
                     self.parseReply()
 
                 except (socket.error, socket.timeout) as msg:
@@ -134,7 +133,7 @@ class FTPClient():
                 return
 
     def sendFilename(self):
-        self.controlSock.send(b'FILENAME receive.pdf\r\n')
+        self.controlSock.send(b'FILENAME receive.txt\n')
 
     def sendData(self, chunkNumber):
 
@@ -160,8 +159,6 @@ hosts = {'10.1.0.3'}
 ftpclient = FTPClient()
 
 ftpclient.connect(hosts, port)
-print("Connection established. Ready to send data.")
-# ftpclient.parseReply()
-# ftpclient.sendFilename()
+log('Quit')
 ftpclient.quit()
 
