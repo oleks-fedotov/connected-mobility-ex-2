@@ -21,9 +21,9 @@ def topology():
     ## The long range, poor quality access point
     ap1 = net.addAccessPoint( 'ap1', ssid= 'ap1-ssid', mode= 'g', channel= '1', position='50,50,0', range=51 )
     ## The sort range, good quality access points
-    ap2 = net.addAccessPoint( 'ap2', ssid= 'ap2-ssid', mode= 'g', channel= '4', position='10,10,0', range=30 )
-    ap3 = net.addAccessPoint( 'ap3', ssid= 'ap3-ssid', mode= 'g', channel= '4', position='90,10,0', range=30 )
-    ap4 = net.addAccessPoint( 'ap4', ssid= 'fast-ssid', mode= 'g', channel= '4', position='50,80,0', range=10 )
+    ap2 = net.addAccessPoint( 'ap2', ssid= 'ap2-ssid', mode= 'g', channel= '4', position='10,10,0', range=35 )
+    ap3 = net.addAccessPoint( 'ap3', ssid= 'ap3-ssid', mode= 'g', channel= '4', position='90,10,0', range=35 )
+    ap4 = net.addAccessPoint( 'ap4', ssid= 'fast-ssid', mode= 'g', channel= '4', position='50,80,0', range=40 )
     ## Controller for the APs (don't need to change this)
     c1 = net.addController( 'c1', controller=Controller )
     ## The host, will run the HTTP server in this example
@@ -69,7 +69,7 @@ def topology():
     net.plotGraph(max_x=100, max_y=100)
 
     """Seed"""
-    net.seed(20)
+    net.seed(99)
 
     "*** Available models: RandomWalk, TruncatedLevyWalk, RandomDirection, RandomWayPoint, GaussMarkov, ReferencePoint, TimeVariantCommunity ***"
     net.startMobility(startTime=0, model='RandomWayPoint', max_x=100, max_y=100, min_v=0.5, max_v=1.2)

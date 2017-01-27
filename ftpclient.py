@@ -1,5 +1,7 @@
 import sys, socket, os, re, time, math
 
+port = 80
+
 def log(message, clientAddr = None):
     ''' Write log '''
     if clientAddr == None:
@@ -35,13 +37,12 @@ class FTPClient():
             for host in hosts:
                 try:
                     self.controlSock = socket.socket(socket.AF_INET, socket.SOCK_STREAM, 0)
-                    # self.controlSock.settimeout(1)
+                    self.controlSock.settimeout(2)
 
                     print("attempt connection on host - " + host)
                     self.controlSock.connect((host, port))
                     self.connected = True
                     print('connection established with - ' + host)
-                    self.parseReply()
 
                     break
                 except socket.error as msg:
@@ -50,10 +51,11 @@ class FTPClient():
                     print(msg)
             if self.connected:
                 break
-            else:
-                time.sleep(1)
+            #else:
+                #time.sleep(2)
 
         self.controlSock.settimeout(1)
+        self.parseReply()
                 
     def quit(self):
         if not self.connected:
@@ -114,13 +116,13 @@ class FTPClient():
                     self.connected = False
                     self.controlSock.close()
                     self.controlSock = None
-                    self.connect(hosts, 80)
+                    self.connect(hosts, port)
 
             except (socket.timeout):
                 self.controlSock.close()
                 self.connected = False
                 self.controlSock = None
-                self.connect(hosts, 80)
+                self.connect(hosts, port)
 
     def sendFilename(self):
         self.controlSock.send(b'FILENAME receive.pdf\r\n')
@@ -148,7 +150,7 @@ hosts = {'10.1.0.3'}
 
 ftpclient = FTPClient()
 
-ftpclient.connect(hosts, 80)
+ftpclient.connect(hosts, port)
 print("Connection established. Ready to send data.")
 # ftpclient.parseReply()
 # ftpclient.sendFilename()

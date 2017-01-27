@@ -33,6 +33,8 @@ class FTPServer(threading.Thread):
         else:
             self.controlSock.send(b'READY')
 
+        self.controlSock.settimeout(1)
+
         while True:
 
             if self.isSocketClosed:
@@ -42,9 +44,9 @@ class FTPServer(threading.Thread):
             isComandHandled = False
             commandArgs = None
 
-            raw_data = self.controlSock.recv(self.bufSize)
-
             try:
+                raw_data = self.controlSock.recv(self.bufSize)
+
                 cmd = raw_data.decode('ascii')
                 splitedData = cmd.split()
 
@@ -58,6 +60,9 @@ class FTPServer(threading.Thread):
 
             except UnicodeDecodeError:
                 cmd = raw_data[0:len(raw_data)]
+            except TimeoutError:
+                self.controlSock.close()
+                break
 
             if cmd == '':  # Connection closed
                 self.controlSock.close()
@@ -88,7 +93,7 @@ class FTPServer(threading.Thread):
             if os.path.isfile(self.filename):
                 os.remove(self.filename)
 
-            self.receivedChunkNumber = 18
+            self.receivedChunkNumber = 0
             self.controlSock.send(str(self.receivedChunkNumber).encode('ascii'))
 
             return True
@@ -111,5 +116,5 @@ if __name__ == '__main__':
     log('Server started.')
     while True:
         (controlSock, clientAddr) = listenSock.accept()
-        FTPServer(controlSock, clientAddr).start()
+        FTPServer(controlSock, clientAddr).run()
         log("Connection accepted.", clientAddr)
