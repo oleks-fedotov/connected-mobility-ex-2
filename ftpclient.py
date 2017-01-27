@@ -107,18 +107,18 @@ class FTPClient():
         self.parseReply()
 
     def sendData(self, chunkNumber):
-        log('sending data, chunk - ' + str(chunkNumber))
-        log('file open')
+
         file = open(self.fileName, 'rb')
-        log('file opened')
         file.seek(chunkNumber * self.bufSize)
-        log('file seeked')
         data = file.read(self.bufSize)
-        log('file read')
+
+        file.close()
+
+        log('data length - ' + str(len(data)))
+
         if len(data) < self.bufSize:
             self.isFileReadCompletely = True
 
-        log('start sending')
         self.controlSock.send(data)
         self.parseReply()
 
@@ -126,11 +126,12 @@ class FTPClient():
         self.controlSock.send(b'FINISH')
         self.parseReply()
 
-hosts = {'10.1.0.3'}
+# hosts = {'10.1.0.3'}
+hosts = {'127.0.0.1'}
 
 ftpclient = FTPClient()
 
-ftpclient.connect(hosts, 80)
+ftpclient.connect(hosts, 8089)
 print("Connection established. Ready to send data.")
 ftpclient.parseReply()
 # ftpclient.sendFilename()
