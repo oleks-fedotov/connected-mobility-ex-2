@@ -57,6 +57,7 @@ class FTPClient():
         self.loggedIn = False
         self.controlSock.close()
         self.controlSock = None
+
     def parseReply(self):
 
         if self.controlSock == None:
