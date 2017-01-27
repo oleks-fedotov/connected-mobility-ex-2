@@ -61,50 +61,51 @@ class FTPClient():
 
     def parseReply(self):
 
-        if self.controlSock == None:
-            return
+        while True:
 
-        try:
-            reply = self.controlSock.recv(self.bufSize).decode('ascii')
-            log(reply)
+            if self.controlSock == None:
+                return
 
-            if reply.upper() == 'READY':
-                self.sendFilename()
+            try:
+                reply = self.controlSock.recv(self.bufSize).decode('ascii')
+                log(reply)
 
-            elif reply.startswith('FINISH '):
-                parts = reply.split()
-                if len(parts) < 2 or (not is_number(parts[1])):
-                    log('FINISH message format is wrong. Cannot confirm correctness of transfered data.')
+                if reply.upper() == 'READY':
+                    self.sendFilename()
 
-                numberOfChunksToCheck = int(reply.split()[1])
+                elif reply.startswith('FINISH '):
+                    parts = reply.split()
+                    if len(parts) < 2 or (not is_number(parts[1])):
+                        log('FINISH message format is wrong. Cannot confirm correctness of transfered data.')
 
-                file = open(self.fileName, 'rb')
-                data = file.read()
-                if not numberOfChunksToCheck == math.ceil(len(data) / self.bufSize):
-                    log('Transfer finished. Data was not delivered correctly. :(')
-                else:
-                    log('Transfer finished. Data was delivered correctly. :)')
+                    numberOfChunksToCheck = int(reply.split()[1])
 
-            elif is_number(reply):
+                    file = open(self.fileName, 'rb')
+                    data = file.read()
+                    if not numberOfChunksToCheck == math.ceil(len(data) / self.bufSize):
+                        log('Transfer finished. Data was not delivered correctly. :(')
+                    else:
+                        log('Transfer finished. Data was delivered correctly. :)')
 
-                if self.isFileReadCompletely:
-                    self.sendFinish()
-                else:
-                    self.chunkNumber = int(reply)
-                    self.sendData(self.chunkNumber)
+                elif is_number(reply):
 
-            else:  # Server disconnected
-                self.connected = False
-                self.loggedIn = False
-                self.controlSock.close()
-                self.controlSock = None
+                    if self.isFileReadCompletely:
+                        self.sendFinish()
+                    else:
+                        self.chunkNumber = int(reply)
+                        self.sendData(self.chunkNumber)
 
-        except (socket.timeout):
-            return
+                else:  # Server disconnected
+                    self.connected = False
+                    self.loggedIn = False
+                    self.controlSock.close()
+                    self.controlSock = None
+
+            except (socket.timeout):
+                return
 
     def sendFilename(self):
         self.controlSock.send(b'FILENAME receive.pdf\r\n')
-        self.parseReply()
 
     def sendData(self, chunkNumber):
 
@@ -120,18 +121,16 @@ class FTPClient():
             self.isFileReadCompletely = True
 
         self.controlSock.send(data)
-        self.parseReply()
 
     def sendFinish(self):
         self.controlSock.send(b'FINISH')
-        self.parseReply()
 
-# hosts = {'10.1.0.3'}
-hosts = {'127.0.0.1'}
+hosts = {'10.1.0.3'}
+# hosts = {'127.0.0.1'}
 
 ftpclient = FTPClient()
 
-ftpclient.connect(hosts, 8089)
+ftpclient.connect(hosts, 80)
 print("Connection established. Ready to send data.")
 ftpclient.parseReply()
 # ftpclient.sendFilename()
