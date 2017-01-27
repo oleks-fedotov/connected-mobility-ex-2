@@ -125,12 +125,12 @@ class FTPClient():
     def sendFinish(self):
         self.controlSock.send(b'FINISH')
 
-hosts = {'10.1.0.3'}
-# hosts = {'127.0.0.1'}
+# hosts = {'10.1.0.3'}
+hosts = {'127.0.0.1'}
 
 ftpclient = FTPClient()
 
-ftpclient.connect(hosts, 80)
+ftpclient.connect(hosts, 8089)
 print("Connection established. Ready to send data.")
 ftpclient.parseReply()
 # ftpclient.sendFilename()
